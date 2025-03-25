@@ -3,7 +3,6 @@ from tqdm import tqdm
 
 from unsloth import FastLanguageModel
 
-import numpy as np
 import torch.nn as nn
 from torch.utils.data import DataLoader
 from torch.optim import Adam
@@ -18,7 +17,7 @@ from Classes.KeypointDataset import KeypointDataset
 import gc
 import os
 import nvtx
-from torch.profiler import profile, record_function, ProfilerActivity
+from torch.profiler import profile, ProfilerActivity
 
 #sudo env "PATH=$PATH" nsys profile --show-output=true --gpu-metrics-devices=all --gpu-metrics-frequency=1000 -o profile_output python train.py
 
@@ -44,6 +43,8 @@ def train(model, train_loader, epochs=100, log_interval=10, learning_rate=1e-4):
             #print(output.shape)
             loss = criterion(output, embeddings)
 
+            #print(output[0][0])
+
             #print("Model Output: ", output)
             #print("Model Embeddings: ", embeddings)
 
@@ -56,7 +57,7 @@ def train(model, train_loader, epochs=100, log_interval=10, learning_rate=1e-4):
         
         if epoch % log_interval == 0:
             df.loc[len(df)] = [epoch, f"{total_loss/len(train_loader):.4f}"]
-            print("Epoch: ", epoch, ".\t Total loss: ", total_loss/len(train_loader))
+        print("Epoch: ", epoch, ".\t Total loss: ", total_loss/len(train_loader))
     
     writer.flush()
     writer.close()
@@ -89,10 +90,10 @@ def collate_fn(batch):
     data = pad_sequence(item[0] for item in batch)
     data = data.permute(1, 0, 2, 3)
 
-    embeddings = pad_sequence(item[1] for item in batch)
+    embeddings = pad_sequence((item[1] for item in batch), padding_value=128004)
     embeddings = embeddings.permute(1, 0, 2)
 
-    print(f"Data: {data.size()}, Embeddings: {embeddings.size()}")
+    #print(f"Data: {data.size()}, Embeddings: {embeddings.size()}")
 
     return data, embeddings
 
@@ -114,7 +115,7 @@ if __name__ == "__main__":
     h5File = os.path.join(DataPath, "keypoints.h5")
     csvFile = os.path.join(DataPath, "meta.csv")
 
-    LIMITS_SECONDS = 30
+    LIMITS_SECONDS = 15
 
     # parameters
     input_size = 543*2 # cantidad de puntos x 2
@@ -143,5 +144,5 @@ if __name__ == "__main__":
         record_shapes=True, 
         with_stack=True
     ) as prof:
-        train(model, dataloader, epochs=1, log_interval=10, learning_rate=learning_rate)
+        train(model, dataloader, epochs=60, log_interval=10, learning_rate=learning_rate)
         

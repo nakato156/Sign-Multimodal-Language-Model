@@ -13,9 +13,9 @@ class SignDataLoader(Dataset):
         data, label = self.keypointReader[idx]
         input_ids = self.llama_tokenizer(label)["input_ids"]
 
-        input_ids = torch.tensor(input_ids,requires_grad=False).to(self.device)
-        #input_ids_pad = torch.full((self.max_len - input_ids.shape[0],),128004)
-        #input_ids = torch.cat([input_ids, input_ids_pad]).to(self.device)
+        input_ids = torch.tensor(input_ids,requires_grad=False)
+        input_ids_pad = torch.full((self.max_len - input_ids.shape[0],),128004)
+        input_ids = torch.cat([input_ids, input_ids_pad]).to(self.device)
 
         embeddings = self.llama_embed_layer(input_ids)
 
