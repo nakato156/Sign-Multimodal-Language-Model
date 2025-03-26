@@ -12,13 +12,12 @@ from Classes.SignDataLoader import SignDataLoader
 from Classes.Imitator import Imitator
 from Classes.KeypointDataset import KeypointDataset
 from Classes.Tools import Tools
+from torch.profiler import profile, ProfilerActivity
 
 import os
 import nvtx
-import torch.cuda.profiler as profiler
-from torch.profiler import profile, ProfilerActivity
 
-# sudo env "PATH=$PATH" nsys profile --gpu-metrics-device=all --show-output=true  --gpu-metrics-frequency=1000 -o profile_output.nsys-rep python train_CUDA.py
+# sudo env "PATH=$PATH" nsys profile --trace cuda,osrt,nvtx --gpu-metrics-device=all --cuda-memory-usage true --force-overwrite true --output profile_run_v1 --gpu-metrics-frequency=500 python train_CUDA.py
 
 LOG = False
 
@@ -54,8 +53,9 @@ def train(
                 embeddings = embeddings.to("cuda")
 
             with torch.autograd.profiler.record_function("Data to Model"):
-                output = model(data).to(torch.bfloat16)
-   
+                output = model(data)
+                if torch.cuda.get_device_capability()[0] >= 8:
+                    output = output.to(torch.bfloat16)
             with torch.autograd.profiler.record_function("Loss Computation"):
                 loss = criterion(output, embeddings)
 
@@ -147,8 +147,8 @@ if __name__ == "__main__":
     
     sort_by_keyword = 'cuda_time_total'
 
-    with torch.autograd.profiler.emit_nvtx():
-        profiler.start()
+    with profile(activities=[ProfilerActivity.CPU, ProfilerActivity.CUDA], record_shapes=True, with_stack=True, profile_memory=True) as p:
         train(model, dataloader, epochs=modelParameters["epochs"], log_interval=modelParameters["logIntervals"], learning_rate=modelParameters["learning_rate"], modelVersions=modelParameters["model"], modelDir=ModelPath)
-        profiler.stop()
-        
+    
+    p.export_chrome_trace("profile_trace.json")
+    print(p.key_averages().table(sort_by="cuda_time_total", row_limit=10))    
