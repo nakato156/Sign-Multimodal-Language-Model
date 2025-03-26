@@ -1,4 +1,3 @@
-import torch
 import torch.nn as nn
 
 from .PositionalEncoding import PositionalEncoding
@@ -23,5 +22,4 @@ class Imitator(nn.Module):
         x = x.transpose(1,2)
         x = self.pooling(x)
         x = x.transpose(1,2)
-        x = x.to(torch.bfloat16)
         return x

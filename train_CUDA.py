@@ -1,8 +1,6 @@
 import pandas as pd
 from tqdm import tqdm
 
-from unsloth import FastLanguageModel
-
 import torch.nn as nn
 from torch.utils.data import DataLoader
 from torch.optim import Adam
@@ -13,16 +11,28 @@ import torch
 from Classes.SignDataLoader import SignDataLoader
 from Classes.Imitator import Imitator
 from Classes.KeypointDataset import KeypointDataset
+from Classes.Tools import Tools
 
-import gc
 import os
 import nvtx
+import torch.cuda.profiler as profiler
 from torch.profiler import profile, ProfilerActivity
 
-#sudo env "PATH=$PATH" nsys profile --show-output=true --gpu-metrics-devices=all --gpu-metrics-frequency=1000 -o profile_output python train.py
+# sudo env "PATH=$PATH" nsys profile --gpu-metrics-device=all --show-output=true  --gpu-metrics-frequency=1000 -o profile_output.nsys-rep python train_CUDA.py
+
+LOG = False
 
 @nvtx.annotate("Start Training", color="green")
-def train(model, train_loader, epochs=100, log_interval=10, learning_rate=1e-4):
+def train(
+    model,
+    train_loader,
+    modelVersions,
+    modelDir, 
+    epochs=100,
+    log_interval=10,
+    checkpoint_interval=5,
+    learning_rate=1e-4
+):
     model.train()
 
     optimizer = Adam(model.parameters(), lr=learning_rate)
@@ -34,19 +44,27 @@ def train(model, train_loader, epochs=100, log_interval=10, learning_rate=1e-4):
     for epoch in tqdm(range(epochs), desc="Entrenando", colour="green"):
         total_loss = 0
         for data, embeddings in train_loader:
-            #print(data.shape) #[12, 1050, 543, 2]
-            #print(embeddings.shape) #[12, 128, 3072]
-            data = data.to("cuda")
-            embeddings = embeddings.to("cuda")
+            if LOG: 
+                print(data.shape) #[12, 1050, 543, 2]
+            if LOG: 
+                print(embeddings.shape) #[12, 128, 3072]
 
-            output = model(data)
-            #print(output.shape)
-            loss = criterion(output, embeddings)
+            with torch.autograd.profiler.record_function("Data to CUDA"):
+                data = data.to("cuda")
+                embeddings = embeddings.to("cuda")
 
-            #print(output[0][0])
+            with torch.autograd.profiler.record_function("Data to Model"):
+                output = model(data).to(torch.bfloat16)
+   
+            with torch.autograd.profiler.record_function("Loss Computation"):
+                loss = criterion(output, embeddings)
 
-            #print("Model Output: ", output)
-            #print("Model Embeddings: ", embeddings)
+            if LOG: 
+                print(output.shape)
+                print(output[0][0])
+
+                print("Model Output: ", output)
+                print("Model Embeddings: ", embeddings)
 
             total_loss += loss
             writer.add_scalar("Loss/train", loss, epoch)
@@ -57,34 +75,19 @@ def train(model, train_loader, epochs=100, log_interval=10, learning_rate=1e-4):
         
         if epoch % log_interval == 0:
             df.loc[len(df)] = [epoch, f"{total_loss/len(train_loader):.4f}"]
+            
+        if epoch % checkpoint_interval == 0 and model != 0: 
+            torch.save({
+                'epoch': epoch,
+                'model_state_dict': model.state_dict(),
+                'optimizer_state_dict': optimizer.state_dict(),
+                'loss': total_loss
+            }, os.path.join(modelDir, "checkpoints", str(modelVersions["version"]), str(modelVersions["checkpoint"]), str(epoch)))
+
         print("Epoch: ", epoch, ".\t Total loss: ", total_loss/len(train_loader))
     
     writer.flush()
     writer.close()
-
-def returnLLM():
-    max_seq_length = 2048 * 2
-    dtype = None
-    load_in_4bit = True
-
-    model, tokenizer = FastLanguageModel.from_pretrained(
-        model_name = "unsloth/Llama-3.2-3B-Instruct",
-        max_seq_length = max_seq_length,
-        dtype = dtype,
-        load_in_4bit = load_in_4bit,
-    )
-
-    # Obtener capa de embeddings
-    embedding_layer = model.get_input_embeddings()
-
-    del model
-    
-    while True:
-        torch.cuda.empty_cache()
-        if gc.collect() == 0:
-            break
-
-    return embedding_layer, tokenizer
 
 def collate_fn(batch):
     data = pad_sequence(item[0] for item in batch)
@@ -93,7 +96,8 @@ def collate_fn(batch):
     embeddings = pad_sequence((item[1] for item in batch), padding_value=128004)
     embeddings = embeddings.permute(1, 0, 2)
 
-    #print(f"Data: {data.size()}, Embeddings: {embeddings.size()}")
+    if LOG:
+        print(f"Data: {data.size()}, Embeddings: {embeddings.size()}")
 
     return data, embeddings
 
@@ -103,46 +107,48 @@ def trace_handler(p):
     p.export_chrome_trace("/tmp/trace_" + str(p.step_num) + ".json")
 
 if __name__ == "__main__":
-    embedding_layer, tokenizer = returnLLM()
-    device_embed = "cpu"
+    tools = Tools()
 
-    all_embeddings = embedding_layer.weight.data.to(device_embed)  # Tensor de forma [vocab_size, d_model]
-    vocab_size, d_model = all_embeddings.shape
+    embedding_layer, tokenizer = tools.getLLM()
+    vocab_size, d_model = embedding_layer.weight.size()
 
     print(f"Vocab size: {vocab_size}, d_model: {d_model}")
 
     DataPath = os.path.join(os.getcwd(), os.pardir, "data", "dataset2")
+    ModelPath = os.path.join(os.getcwd(), "model")
     h5File = os.path.join(DataPath, "keypoints.h5")
     csvFile = os.path.join(DataPath, "meta.csv")
 
-    LIMITS_SECONDS = 15
-
     # parameters
-    input_size = 543*2 # cantidad de puntos x 2
-    output_size = 3072
-    learning_rate = 2e-4
-    device = "cuda" if torch.cuda.is_available() else "cpu"
+    modelParameters = {
+        "model": {
+            "version": 1,
+            "checkpoint": 1
+        },
+        "input_size": 543*2,
+        "output_size": 3072,
+        "learning_rate": 2e-4,
+        "device": "cuda" if torch.cuda.is_available() else "cpu",
+        "epochs": 1,
+        "logIntervals": 10,
+        "checkpointIntervals": 5,
+        "batchSize": 12,
+        "frameClips": 15 * 35
+    }
 
-    keypointReader = KeypointDataset(h5Path=h5File, labelsCSV=csvFile, max_seq_len=LIMITS_SECONDS * 35)
-    dataset = SignDataLoader(tokenizer, embedding_layer, keypointReader, device)
-    dataloader = DataLoader(dataset, batch_size=12, shuffle=True, collate_fn=collate_fn)
+    keypointReader = KeypointDataset(h5Path=h5File, labelsCSV=csvFile, max_seq_len=modelParameters["frameClips"])
+    dataset = SignDataLoader(tokenizer, embedding_layer, keypointReader, modelParameters["device"])
+    dataloader = DataLoader(dataset, batch_size=modelParameters["batchSize"], shuffle=True, collate_fn=collate_fn)
 
     # model
-    model = Imitator(input_size=input_size, output_size=output_size, d_model=d_model).to(device)
+    model = Imitator(input_size=modelParameters["input_size"], output_size=modelParameters["output_size"], d_model=d_model).to(modelParameters["device"])
 
     print(model)
     
     sort_by_keyword = 'cuda_time_total'
 
-    with profile(
-        activities=[ProfilerActivity.CUDA, ProfilerActivity.CPU],
-        schedule=torch.profiler.schedule(
-            wait=1,
-            warmup=1,
-            active=2),
-        on_trace_ready=trace_handler,
-        record_shapes=True, 
-        with_stack=True
-    ) as prof:
-        train(model, dataloader, epochs=60, log_interval=10, learning_rate=learning_rate)
+    with torch.autograd.profiler.emit_nvtx():
+        profiler.start()
+        train(model, dataloader, epochs=modelParameters["epochs"], log_interval=modelParameters["logIntervals"], learning_rate=modelParameters["learning_rate"], modelVersions=modelParameters["model"], modelDir=ModelPath)
+        profiler.stop()
         
