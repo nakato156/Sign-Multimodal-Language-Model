@@ -2,7 +2,6 @@ import h5py
 import pandas as pd
 import numpy as np
 import torch
-import math
 
 class KeypointDataset():
     def __init__(self, h5Path, labelsCSV, max_seq_len, transform = None):
@@ -33,13 +32,7 @@ class KeypointDataset():
                     signer_group = clip_group[signer]
                     #print("Datasets in signer:", list(signer_group.keys()))
 
-                    dataNotNan = False
-
-                    if signer_group["keypoints"][0][0] != math.nan:
-                        #print(signer_group["keypoints"][0][0])
-                        dataNotNan = True
-
-                    if "keypoints" in signer_group and dataNotNan:
+                    if "keypoints" in signer_group:
                         self.mapping.append((clip,signer))
 
             self.valid_index = []
@@ -78,6 +71,9 @@ class KeypointDataset():
         elif num_frames < self.max_seq_len:
             padding = np.zeros((self.max_seq_len - num_frames, num_joints, 2)) 
             keypoint = np.concatenate([keypoint, padding], axis = 0)
+
+        #Change nan to 0
+        keypoint = np.nan_to_num(keypoint, 0)
 
         if self.transform:
             keypoint = self.transform(keypoint)
