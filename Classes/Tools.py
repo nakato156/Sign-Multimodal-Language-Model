@@ -15,6 +15,8 @@ from torch.utils.tensorboard import SummaryWriter
 
 import memory_profiler
 import nvtx
+from pathlib import Path
+from .EarlyStopping import EarlyStopping
 
 class Tools:
     def __init__(self, LOG=False):
@@ -55,6 +57,7 @@ class Tools:
         self,
         model,
         train_loader,
+        val_loader,
         modelVersions,
         modelDir, 
         epochs=100,
@@ -63,16 +66,16 @@ class Tools:
         learning_rate=1e-4,
         device = "cuda"
     ):
-        model.train()
-
         optimizer = AdamW(model.parameters(), lr=learning_rate)
         criterion = nn.CosineSimilarity(dim=2, eps=1e-6)
         writer = SummaryWriter("imitator_report")
         scaler = GradScaler(device=device)
 
         df = pd.DataFrame(columns=["epoch", "loss"])
+        early_stopping = EarlyStopping()
 
         for epoch in tqdm(range(epochs), desc="Entrenando", colour="green"):
+            model.train()
             total_loss = 0
             for data, embeddings in train_loader:
                 optimizer.zero_grad(set_to_none=True)
@@ -110,6 +113,8 @@ class Tools:
                 del output, loss, data, embeddings, cos_sim
                 torch.cuda.empty_cache()
 
+            name_checkpoint =  Path(modelDir) / "checkpoints" / f"{modelVersions['version']}_{modelVersions['checkpoint']}_{epoch}"
+
             if epoch % log_interval == 0:
                 df.loc[len(df)] = [epoch, f"{total_loss/len(train_loader):.4f}"]
                 
@@ -119,9 +124,33 @@ class Tools:
                     'model_state_dict': model.state_dict(),
                     'optimizer_state_dict': optimizer.state_dict(),
                     'loss': total_loss
-                }, os.path.join(modelDir, "checkpoints", str(modelVersions["version"]), str(modelVersions["checkpoint"]), str(epoch)))
+                }, name_checkpoint)
 
             print("\nEpoch: ", epoch, ".\t Total loss: ", total_loss/len(train_loader))
+        
+            with torch.no_grad():
+                model.eval()
+                val_loss = 0
+                for data, embeddings in val_loader:
+                    data = data.to(device)
+                    embeddings = embeddings.to(device)
+
+                    output = model(data)
+                    cos_sim = criterion(output, embeddings)
+                    val_loss += torch.mean(1 - cos_sim).item()
+                    del output, data, embeddings, cos_sim
+                    torch.cuda.empty_cache()
+                val_loss /= len(val_loader)
+                
+                early_stopping(val_loss)
+                if early_stopping.stop:
+                    torch.save({
+                        'epoch': epoch,
+                        'model_state_dict': model.state_dict(),
+                        'optimizer_state_dict': optimizer.state_dict(),
+                        'loss': total_loss
+                    }, name_checkpoint)
+                    return
         
         writer.flush()
         writer.close()

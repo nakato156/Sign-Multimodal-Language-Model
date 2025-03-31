@@ -63,6 +63,8 @@ if __name__ == "__main__":
 
     train_dataset, validation_dataset = random_split(dataset, [train_size, validation_size])
     train_dataloader = DataLoader(train_dataset, batch_size=modelParameters["batchSize"], shuffle=True, collate_fn=tools.collate_fn)
+    val_dataloader = DataLoader(validation_dataset, batch_size=modelParameters["batchSize"], shuffle=True, collate_fn=tools.collate_fn)
+
     validation_dataloader = DataLoader(
         validation_dataset,
         batch_size=modelParameters["batchSize"],
@@ -71,7 +73,7 @@ if __name__ == "__main__":
     )
 
     # model
-    model = Imitator(input_size=modelParameters["input_size"], output_size=modelParameters["output_size"], d_model=d_model).to(modelParameters["device"])
+    model = Imitator(input_size=modelParameters["input_size"], T_size=modelParameters["frameClips"], output_size=modelParameters["output_size"]).to(modelParameters["device"])
 
     print(model)
     
@@ -84,6 +86,7 @@ if __name__ == "__main__":
         tools.train(
             model,
             train_dataloader,
+            val_dataloader,
             epochs=modelParameters["epochs"],
             log_interval=modelParameters["logIntervals"],
             learning_rate=modelParameters["learning_rate"],
