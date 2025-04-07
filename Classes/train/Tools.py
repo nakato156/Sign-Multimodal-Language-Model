@@ -24,7 +24,6 @@ class Tools:
         self.executeLLM()
         self.LOG = LOG
 
-
     def getLLM(self):
         return self.embedding_layer, self.tokenizer
 
@@ -52,7 +51,6 @@ class Tools:
                 break
 
     @nvtx.annotate("Start Training", color="green")
-    @memory_profiler.profile
     def train(
         self,
         model,
@@ -71,8 +69,13 @@ class Tools:
         writer = SummaryWriter("imitator_report")
         scaler = GradScaler(device=device)
 
+        dirExists = False
+        modelPath =  os.path.join(modelDir, "checkpoints", str(modelVersions["version"]), str(modelVersions["checkpoint"]))
+        if not os.path.exists(modelPath) or dirExists:
+            os.makedirs(modelPath)
+
         df = pd.DataFrame(columns=["epoch", "loss"])
-        early_stopping = EarlyStopping()
+        early_stopping = EarlyStopping(modelPath)
 
         for epoch in tqdm(range(epochs), desc="Entrenando", colour="green"):
             model.train()
@@ -93,40 +96,36 @@ class Tools:
                         with autocast(device_type=device):
                             output = model(data)
                 
-                cos_sim = criterion(output, embeddings)
-                loss = (1 - cos_sim).mean()
-                total_loss += loss.item()
+                with nvtx.annotate("Backward Pass", color="blue"):            
+                    cos_sim = criterion(output, embeddings)
+                    loss = torch.mean(1 - cos_sim)
+                    total_loss += loss.detach()
+                    final_loss = total_loss.item()
 
                 writer.add_scalar("Loss/train", loss, epoch)
 
-                scaler.scale(loss).backward()
-                
-                scaler.unscale_(optimizer)
-                torch.nn.utils.clip_grad_norm_(model.parameters(), 0.5)
+                with nvtx.annotate("Update", color="blue"):            
+                    scaler.scale(loss).backward()
+                    
+                    #scaler.unscale_(optimizer)
+                    torch.nn.utils.clip_grad_norm_(model.parameters(), 0.5)
 
-                scaler.step(optimizer)
-                scaler.update()
+                    scaler.step(optimizer)
+                    scaler.update()
 
-                #loss.backward()
-                #optimizer.step()
+                    #loss.backward()
+                    #optimizer.step()
 
                 del output, loss, data, embeddings, cos_sim
                 torch.cuda.empty_cache()
 
-            name_checkpoint =  Path(modelDir) / "checkpoints" / f"{modelVersions['version']}_{modelVersions['checkpoint']}_{epoch}"
-
             if epoch % log_interval == 0:
-                df.loc[len(df)] = [epoch, f"{total_loss/len(train_loader):.4f}"]
+                df.loc[len(df)] = [epoch, f"{final_loss/len(train_loader):.4f}"]
                 
-            if epoch % checkpoint_interval == 0 and epoch != 0 and epoch == epochs-1: 
-                torch.save({
-                    'epoch': epoch,
-                    'model_state_dict': model.state_dict(),
-                    'optimizer_state_dict': optimizer.state_dict(),
-                    'loss': total_loss
-                }, name_checkpoint)
-
-            print("\nEpoch: ", epoch, ".\t Total loss: ", total_loss/len(train_loader))
+            if epoch % checkpoint_interval == 0 and epoch != 0 and epoch == epochs-1:
+                torch.save(model, os.path.join(modelPath, str(epoch)))
+                
+            print("\nEpoch: ", epoch, ".\t Total loss: ", final_loss/len(train_loader))
         
             with torch.no_grad():
                 model.eval()
@@ -141,15 +140,11 @@ class Tools:
                     del output, data, embeddings, cos_sim
                     torch.cuda.empty_cache()
                 val_loss /= len(val_loader)
+                print(f"Validation Loss: {val_loss}" )
                 
                 early_stopping(val_loss)
                 if early_stopping.stop:
-                    torch.save({
-                        'epoch': epoch,
-                        'model_state_dict': model.state_dict(),
-                        'optimizer_state_dict': optimizer.state_dict(),
-                        'loss': total_loss
-                    }, name_checkpoint)
+                    torch.save(model, os.path.join(modelPath, str(epoch+1)))
                     return
         
         writer.flush()
@@ -169,3 +164,9 @@ class Tools:
             print(f"Data: {data.size()}, Embeddings: {embeddings.size()}")
 
         return data, embeddings
+
+    def saveModel():
+        pass
+
+    def loadModel():
+        pass

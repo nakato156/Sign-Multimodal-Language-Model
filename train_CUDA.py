@@ -14,7 +14,7 @@ from torch.profiler import profile, ProfilerActivity
 
 # sudo env "PATH=$PATH" nsys profile --trace cuda,osrt,nvtx --gpu-metrics-device=all --cuda-memory-usage true --force-overwrite true --output profile_run_v1 --gpu-metrics-frequency=500 python train_CUDA.py
 
-PROFILE = True
+PROFILE = False
 LOG = False
 
 def trace_handler(p):
@@ -38,17 +38,17 @@ if __name__ == "__main__":
     # parameters
     modelParameters = {
         "model": {
-            "version": 3,
+            "version": 5,
             "checkpoint": 1
         },
         "input_size": 543*2,
         "output_size": 3072,
         "learning_rate": 2e-4,
         "device": "cuda" if torch.cuda.is_available() else "cpu",
-        "epochs": 2,
-        "logIntervals": 1,
-        "checkpointIntervals": 20,
-        "batchSize": 16,
+        "epochs": 1000,
+        "logIntervals": 20,
+        "checkpointIntervals": 40,
+        "batchSize": 32,
         "frameClips": 15 * 35,
         "train_ratio": 0.8,
         "validation_ratio": 0.2
@@ -81,7 +81,7 @@ if __name__ == "__main__":
  
     if PROFILE:
         with profile(activities=[ProfilerActivity.CPU, ProfilerActivity.CUDA], record_shapes=True, with_stack=True, profile_memory=True) as p:
-            tools.train(model, train_dataloader, epochs=modelParameters["epochs"], log_interval=modelParameters["logIntervals"], learning_rate=modelParameters["learning_rate"], modelVersions=modelParameters["model"], modelDir=ModelPath, checkpoint_interval=modelParameters["checkpointIntervals"])
+            tools.train(model, train_dataloader, val_dataloader,epochs=modelParameters["epochs"], log_interval=modelParameters["logIntervals"], learning_rate=modelParameters["learning_rate"], modelVersions=modelParameters["model"], modelDir=ModelPath, checkpoint_interval=modelParameters["checkpointIntervals"])
     else:
         tools.train(
             model,

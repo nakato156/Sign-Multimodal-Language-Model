@@ -10,7 +10,7 @@ class EarlyStopping:
         self.path_checkpoints = Path(path_checkpoints)
         self.stop = False
 
-    def __call__(self,val_loss, model, checkpoint_name:str):
+    def __call__(self,val_loss):
         if val_loss == np.nan:
             if self.verbose: print("Giorgio desgraciado")
         
@@ -20,5 +20,4 @@ class EarlyStopping:
         
         if self.patience == 0:
             if self.verbose: print("Early Stopping")
-            torch.save(model.state_dict(), self.path_checkpoints / f"best_early_{checkpoint_name}")
             self.stop = True
