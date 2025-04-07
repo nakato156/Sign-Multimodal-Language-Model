@@ -3,8 +3,9 @@ from .PositionalEncoding import PositionalEncoding
 import torch.nn.functional as F
 
 class Imitator(nn.Module):
-    def __init__(self, input_size=1086, hidden_size=512, T_size=525, output_size=128256):
+    def __init__(self, input_size=1086, hidden_size=512, T_size=525, output_size=3072):
         super().__init__()
+
         self.linear = nn.Linear(input_size, hidden_size)
         nn.init.xavier_uniform_(self.linear.weight)
         
@@ -24,7 +25,8 @@ class Imitator(nn.Module):
 
     def forward(self, x):
         # x -> [batch_size, T, input_size]
-        x = x.view(x.shape[0], x.shape[1], 543*2)
+        B, T, D, C = x.shape
+        x = x.view(B, T,  D * C)
         x = F.relu(self.linear(x))
         x = self.norm1(x)
 
