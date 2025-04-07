@@ -16,6 +16,7 @@ class EarlyStopping:
         
         if val_loss < self.best_loss:
             self.best_loss = val_loss
+        else:
             self.patience -= 1
         
         if self.patience == 0:

@@ -2,6 +2,7 @@ import torch
 from unsloth import FastLanguageModel
 import gc
 import os
+import json
 
 import pandas as pd
 from tqdm import tqdm
@@ -15,7 +16,6 @@ from torch.utils.tensorboard import SummaryWriter
 
 import memory_profiler
 import nvtx
-from pathlib import Path
 from .EarlyStopping import EarlyStopping
 
 class Tools:
@@ -65,14 +65,11 @@ class Tools:
         device = "cuda"
     ):
         optimizer = AdamW(model.parameters(), lr=learning_rate)
-        criterion = nn.CosineSimilarity(dim=2, eps=1e-6)
+        criterion = nn.MSELoss()
         writer = SummaryWriter("imitator_report")
         scaler = GradScaler(device=device)
 
-        dirExists = False
         modelPath =  os.path.join(modelDir, "checkpoints", str(modelVersions["version"]), str(modelVersions["checkpoint"]))
-        if not os.path.exists(modelPath) or dirExists:
-            os.makedirs(modelPath)
 
         df = pd.DataFrame(columns=["epoch", "loss"])
         early_stopping = EarlyStopping(modelPath)
@@ -92,23 +89,23 @@ class Tools:
                     if torch.cuda.get_device_capability()[0] >= 8:
                         with autocast(device_type=device, dtype=torch.bfloat16):
                             output = model(data)
+                            loss = criterion(output, embeddings)
                     else:
                         with autocast(device_type=device):
                             output = model(data)
+                            loss = criterion(output, embeddings)
                 
                 with nvtx.annotate("Backward Pass", color="blue"):            
-                    cos_sim = criterion(output, embeddings)
-                    loss = torch.mean(1 - cos_sim)
                     total_loss += loss.detach()
                     final_loss = total_loss.item()
 
                 writer.add_scalar("Loss/train", loss, epoch)
 
-                with nvtx.annotate("Update", color="blue"):            
+                with nvtx.annotate("Update", color="blue"):
                     scaler.scale(loss).backward()
                     
-                    #scaler.unscale_(optimizer)
-                    torch.nn.utils.clip_grad_norm_(model.parameters(), 0.5)
+                    # scaler.unscale_(optimizer)
+                    # torch.nn.utils.clip_grad_norm_(model.parameters(), 1)
 
                     scaler.step(optimizer)
                     scaler.update()
@@ -116,36 +113,39 @@ class Tools:
                     #loss.backward()
                     #optimizer.step()
 
-                del output, loss, data, embeddings, cos_sim
+                del output, loss, data, embeddings
                 torch.cuda.empty_cache()
 
             if epoch % log_interval == 0:
                 df.loc[len(df)] = [epoch, f"{final_loss/len(train_loader):.4f}"]
                 
-            if epoch % checkpoint_interval == 0 and epoch != 0 and epoch == epochs-1:
-                torch.save(model, os.path.join(modelPath, str(epoch)))
+            if (epoch % checkpoint_interval == 0 and epoch != 0) or (epoch == epochs-1):
+                self.saveModel(model, os.path.join(modelPath, str(epoch)))
                 
             print("\nEpoch: ", epoch, ".\t Total loss: ", final_loss/len(train_loader))
         
-            with torch.no_grad():
-                model.eval()
-                val_loss = 0
-                for data, embeddings in val_loader:
-                    data = data.to(device)
-                    embeddings = embeddings.to(device)
+            with nvtx.annotate("Prueba de Validacion", color="blue"):
+                with torch.no_grad():
+                    model.eval()
+                    val_loss = 0
+                    for data, embeddings in val_loader:
+                        data = data.to(device)
+                        embeddings = embeddings.to(device)
 
-                    output = model(data)
-                    cos_sim = criterion(output, embeddings)
-                    val_loss += torch.mean(1 - cos_sim).item()
+                        output = model(data)
+                        cos_sim = criterion(output, embeddings)
+                        val_loss += cos_sim
+
                     del output, data, embeddings, cos_sim
                     torch.cuda.empty_cache()
-                val_loss /= len(val_loader)
-                print(f"Validation Loss: {val_loss}" )
-                
-                early_stopping(val_loss)
-                if early_stopping.stop:
-                    torch.save(model, os.path.join(modelPath, str(epoch+1)))
-                    return
+                    
+                    final_val_loss = val_loss.item() / len(val_loader)
+                    print(f"Validation Loss: {final_val_loss}" )
+                    
+                    early_stopping(final_val_loss)
+                    if early_stopping.stop:
+                        self.saveModel(model, path=os.path.join(modelPath, str(epoch + 1)))
+                        return
         
         writer.flush()
         writer.close()
@@ -165,8 +165,30 @@ class Tools:
 
         return data, embeddings
 
-    def saveModel():
-        pass
+    def saveModel(self, model, path):
+        if not os.path.exists(path):
+            os.makedirs(path)
+        torch.save(model, f"{path}/model.pt")
 
-    def loadModel():
-        pass
+
+    def loadModel(self, path):
+        torch.load(path)
+
+    def saveParameters(self, path, parameters):
+        return
+        parameterPath = os.path.join(
+            path,
+            "checkpoints",
+            str(parameters["version"]),
+            str(parameters["checkpoint"]),
+        )
+
+        if (
+            not os.path.exists(
+                parameterPath
+            )
+        ):
+            os.makedirs(parameterPath)
+
+        with open(os.path.join(parameterPath, "parameters.json"), 'w') as f:
+            json.dump(parameters, f)
