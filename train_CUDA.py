@@ -36,16 +36,17 @@ if __name__ == "__main__":
     # parameters
     modelParameters = {
         "model": {
-            "version": 7,
-            "checkpoint": 1
+            "version": 8,
+            "checkpoint": 3,
+            "from_checkpoint": False
         },
         "input_size": 543*2,
         "output_size": 3072,
-        "learning_rate": 2e-4,
+        "learning_rate": 2e-3, # yo lo cambie :D
         "device": "cuda" if torch.cuda.is_available() else "cpu",
-        "epochs": 1000,
+        "epochs": 10,
         "logIntervals": 20,
-        "checkpointIntervals": 5,
+        "checkpointIntervals": 2,
         "batchSize": 32,
         "frameClips": 15 * 35,
         "train_ratio": 0.8,
@@ -65,15 +66,9 @@ if __name__ == "__main__":
     train_dataloader = DataLoader(train_dataset, batch_size=modelParameters["batchSize"], shuffle=True, collate_fn=tools.collate_fn)
     val_dataloader = DataLoader(validation_dataset, batch_size=modelParameters["batchSize"], shuffle=True, collate_fn=tools.collate_fn)
 
-    validation_dataloader = DataLoader(
-        validation_dataset,
-        batch_size=modelParameters["batchSize"],
-        shuffle=True,
-        collate_fn=tools.collate_fn,
-    )
-
     # model
     model = Imitator(input_size=modelParameters["input_size"], T_size=modelParameters["frameClips"], output_size=modelParameters["output_size"]).to(modelParameters["device"])
+    model_compiled = torch.compile(model, backend="inductor", mode="default")
 
     print(model)
     
@@ -81,10 +76,20 @@ if __name__ == "__main__":
  
     if PROFILE:
         with profile(activities=[ProfilerActivity.CPU, ProfilerActivity.CUDA], record_shapes=True, with_stack=True, profile_memory=True) as p:
-            tools.train(model, train_dataloader, val_dataloader,epochs=modelParameters["epochs"], log_interval=modelParameters["logIntervals"], learning_rate=modelParameters["learning_rate"], modelVersions=modelParameters["model"], modelDir=ModelPath, checkpoint_interval=modelParameters["checkpointIntervals"])
+            tools.train(
+                model_compiled,
+                train_dataloader,
+                val_dataloader,
+                epochs=modelParameters["epochs"],
+                log_interval=modelParameters["logIntervals"],
+                learning_rate=modelParameters["learning_rate"],
+                modelVersions=modelParameters["model"],
+                modelDir=ModelPath,
+                checkpoint_interval=modelParameters["checkpointIntervals"],
+            )
     else:
         tools.train(
-            model,
+            model_compiled,
             train_dataloader,
             val_dataloader,
             epochs=modelParameters["epochs"],
@@ -96,6 +101,4 @@ if __name__ == "__main__":
         )
 
     #p.export_chrome_trace("profile_trace.json")
-    #print(p.key_averages().table(sort_by="cuda_time_total", row_limit=10))    
-
-    
+    #print(p.key_averages().table(sort_by="cuda_time_total", row_limit=10))ª

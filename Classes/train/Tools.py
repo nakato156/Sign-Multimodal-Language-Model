@@ -65,7 +65,8 @@ class Tools:
         device = "cuda"
     ):
         optimizer = AdamW(model.parameters(), lr=learning_rate)
-        criterion = nn.MSELoss()
+        criterion = nn.CosineSimilarity(dim=2, eps=1e-6)
+        # criterion = nn.MSELoss()
         writer = SummaryWriter("imitator_report")
         scaler = GradScaler(device=device)
 
@@ -90,10 +91,12 @@ class Tools:
                         with autocast(device_type=device, dtype=torch.bfloat16):
                             output = model(data)
                             loss = criterion(output, embeddings)
+                            loss = (1 - loss).mean()
                     else:
                         with autocast(device_type=device):
                             output = model(data)
                             loss = criterion(output, embeddings)
+                            loss = (1 - loss).mean()
                 
                 with nvtx.annotate("Backward Pass", color="blue"):            
                     total_loss += loss.detach()
@@ -113,8 +116,8 @@ class Tools:
                     #loss.backward()
                     #optimizer.step()
 
-                del output, loss, data, embeddings
-                torch.cuda.empty_cache()
+                #del output, loss, data, embeddings
+            torch.cuda.empty_cache()
 
             if epoch % log_interval == 0:
                 df.loc[len(df)] = [epoch, f"{final_loss/len(train_loader):.4f}"]
@@ -134,11 +137,12 @@ class Tools:
 
                         output = model(data)
                         cos_sim = criterion(output, embeddings)
-                        val_loss += cos_sim
+                        cos_sim = (1 - cos_sim).mean()
+                        val_loss += cos_sim.detach()
 
-                    del output, data, embeddings, cos_sim
+                        #del output, data, embeddings, cos_sim
                     torch.cuda.empty_cache()
-                    
+                        
                     final_val_loss = val_loss.item() / len(val_loader)
                     print(f"Validation Loss: {final_val_loss}" )
                     
@@ -175,12 +179,11 @@ class Tools:
         torch.load(path)
 
     def saveParameters(self, path, parameters):
-        return
         parameterPath = os.path.join(
             path,
             "checkpoints",
-            str(parameters["version"]),
-            str(parameters["checkpoint"]),
+            str(parameters["model"]["version"]),
+            str(parameters["model"]["checkpoint"]),
         )
 
         if (
