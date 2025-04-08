@@ -66,7 +66,6 @@ class Tools:
     ):
         optimizer = AdamW(model.parameters(), lr=learning_rate)
         criterion = nn.CosineSimilarity(dim=2, eps=1e-6)
-        # criterion = nn.MSELoss()
         writer = SummaryWriter("imitator_report")
         scaler = GradScaler(device=device)
 
