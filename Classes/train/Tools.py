@@ -7,16 +7,36 @@ import json
 import pandas as pd
 from tqdm import tqdm
 
-import torch.multiprocessing as mp
 import torch.nn as nn
 from torch import autocast, GradScaler
 from torch.nn.utils.rnn import pad_sequence
 from torch.optim import AdamW
 from torch.utils.tensorboard import SummaryWriter
+import torch.nn.functional as F
 
-import memory_profiler
 import nvtx
 from .EarlyStopping import EarlyStopping
+
+class ImitatorLoss(nn.Module):
+
+    def __init__(self, alpha=1.0, beta=1.0):
+        """
+        Combina L2 (MSE) y CosineEmbeddingLoss:
+        total_loss = alpha * L2 + beta * (1 - cos_similarity)
+        """
+        super().__init__()
+
+        self.alpha = alpha
+        self.beta = beta
+        self.cos_sim = nn.CosineSimilarity(dim=-1)
+
+    def forward(self, pred, target):
+        l2 = F.mse_loss(pred, target)
+
+        cosine_sim = self.cos_sim(pred, target)
+        cosine_loss = 1 - cosine_sim.mean()
+
+        return (self.alpha * l2) + (self.beta * cosine_loss)
 
 class Tools:
     def __init__(self, LOG=False):
@@ -49,7 +69,12 @@ class Tools:
             torch.cuda.empty_cache()
             if gc.collect() == 0:
                 break
+    
+    def get_logits_from_embedding(self, embeddings) -> str:
+        logits_from_embeddings = embeddings @ self.embedding_layer.weight.T
+        return F.log_softmax(logits_from_embeddings)
 
+    @torch.compile
     @nvtx.annotate("Start Training", color="green")
     def train(
         self,
@@ -64,8 +89,13 @@ class Tools:
         learning_rate=1e-4,
         device = "cuda"
     ):
+        
         optimizer = AdamW(model.parameters(), lr=learning_rate)
-        criterion = nn.CosineSimilarity(dim=2, eps=1e-6)
+        criterion = ImitatorLoss(alpha=1.0, beta=1.0)
+        criterion_compiled = torch.compile(
+            criterion, backend="inductor", mode="default"
+        )
+
         writer = SummaryWriter("imitator_report")
         scaler = GradScaler(device=device)
 
@@ -89,13 +119,11 @@ class Tools:
                     if torch.cuda.get_device_capability()[0] >= 8:
                         with autocast(device_type=device, dtype=torch.bfloat16):
                             output = model(data)
-                            loss = criterion(output, embeddings)
-                            loss = (1 - loss).mean()
+                            loss = criterion_compiled(output, embeddings)
                     else:
                         with autocast(device_type=device):
                             output = model(data)
-                            loss = criterion(output, embeddings)
-                            loss = (1 - loss).mean()
+                            loss = criterion_compiled(output, embeddings)
                 
                 with nvtx.annotate("Backward Pass", color="blue"):            
                     total_loss += loss.detach()
@@ -107,7 +135,7 @@ class Tools:
                     scaler.scale(loss).backward()
                     
                     # scaler.unscale_(optimizer)
-                    # torch.nn.utils.clip_grad_norm_(model.parameters(), 1)
+                    # torch.nn.utils.clip_grad_norm_(model.parameters(), 0.5)
 
                     scaler.step(optimizer)
                     scaler.update()
@@ -115,6 +143,8 @@ class Tools:
                     #loss.backward()
                     #optimizer.step()
 
+                #del output, loss, data, embeddings
+            torch.cuda.empty_cache()
                 #del output, loss, data, embeddings
             torch.cuda.empty_cache()
 
@@ -130,17 +160,18 @@ class Tools:
                 with torch.no_grad():
                     model.eval()
                     val_loss = 0
-                    for data, embeddings in val_loader:
+                    for data, input_ids in val_loader:
                         data = data.to(device)
-                        embeddings = embeddings.to(device)
+                        input_ids = input_ids.to(device)
 
                         output = model(data)
-                        cos_sim = criterion(output, embeddings)
-                        cos_sim = (1 - cos_sim).mean()
-                        val_loss += cos_sim.detach()
+                        loss = criterion_compiled(output.to(dtype=torch.bfloat16), input_ids)
+                        val_loss += loss.detach()
 
                         #del output, data, embeddings, cos_sim
+                        #del output, data, embeddings, cos_sim
                     torch.cuda.empty_cache()
+                        
                         
                     final_val_loss = val_loss.item() / len(val_loader)
                     print(f"Validation Loss: {final_val_loss}" )
@@ -157,8 +188,10 @@ class Tools:
         data = pad_sequence([item[0] for item in batch])
         data = data.permute(1, 0, 2, 3)
 
-        embeddings = pad_sequence([item[1] for item in batch], padding_value=128004)
-        embeddings = embeddings.permute(1, 0, 2)
+        embeddings = torch.stack([item[1] for item in batch])
+
+        # embeddings = pad_sequence([item[1] for item in batch], padding_value=128004)
+        # embeddings = embeddings.permute(1, 0, 2)
 
         # print(f"Data has NaN: {torch.isnan(data).any()}")
         # print(f"Embeddings has NaN: {torch.isnan(embeddings).any()}")
@@ -173,7 +206,6 @@ class Tools:
             os.makedirs(path)
         torch.save(model, f"{path}/model.pt")
 
-
     def loadModel(self, path):
         torch.load(path)
 
@@ -181,6 +213,8 @@ class Tools:
         parameterPath = os.path.join(
             path,
             "checkpoints",
+            str(parameters["model"]["version"]),
+            str(parameters["model"]["checkpoint"]),
             str(parameters["model"]["version"]),
             str(parameters["model"]["checkpoint"]),
         )

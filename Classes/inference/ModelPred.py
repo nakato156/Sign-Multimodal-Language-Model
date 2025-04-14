@@ -66,3 +66,24 @@ class MultimodalSignLM:
         # Encontrar el índice del token más similar
         closest_token_id = torch.argmax(similarities).item()
         return closest_token_id
+
+    def embeddings_to_text(self, embeddings: torch.Tensor) -> str:
+        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        
+        self.model.eval()
+
+        embeddings = embeddings.to(device)
+
+        embedding_layer = self.model.get_input_embeddings()
+        embedding_matrix = embedding_layer.weight.float().to(device)  # [vocab_size, hidden_dim]
+
+        embedding_matrix_norm = F.normalize(embedding_matrix, p=2, dim=1)  # [V, D]
+        print(embedding_matrix_norm.shape)
+
+        embeddings_norm = F.normalize(embeddings, p=2, dim=1)  # [T, D]
+
+        similarities = torch.matmul(embeddings_norm, embedding_matrix_norm.T)  # [T, V]
+
+        token_ids = torch.argmax(similarities, dim=1).tolist()
+        
+        return self.tokenizer.decode(token_ids, skip_special_tokens=True)
