@@ -1,5 +1,4 @@
 import numpy as np
-import torch 
 from pathlib import Path
 
 class EarlyStopping:
@@ -13,8 +12,9 @@ class EarlyStopping:
         self.treshold = threshold
 
     def __call__(self, val_loss):
-        if val_loss == np.nan:
-            if self.verbose: print("Giorgio desgraciado")
+        if np.isnan(val_loss):
+            if self.verbose: print("Giorgio desgraciado \nIgnorando epoch")
+            return
         
         if val_loss < self.best_loss:
             self.best_loss = val_loss

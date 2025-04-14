@@ -1,5 +1,6 @@
 import os
 import torch
+import torch.multiprocessing as mp
 
 from torch.utils.data import DataLoader, random_split
 
@@ -21,6 +22,7 @@ def trace_handler(p):
     p.export_chrome_trace("/tmp/trace_" + str(p.step_num) + ".json")
 
 if __name__ == "__main__":
+    #mp.set_start_method("spawn", force=True)
     tools = Tools(LOG)
 
     embedding_layer, tokenizer = tools.getLLM()
@@ -33,20 +35,20 @@ if __name__ == "__main__":
     h5File = os.path.join(DataPath, "keypoints.h5")
     csvFile = os.path.join(DataPath, "meta.csv")
 
-    # parameters
+    # Parameters and Saving Parameteres
     modelParameters = {
         "model": {
-            "version": 8,
-            "checkpoint": 3,
+            "version": 11,
+            "checkpoint": 5,
             "from_checkpoint": False
         },
         "input_size": 543*2,
         "output_size": 3072,
-        "learning_rate": 2e-3, # yo lo cambie :D
+        "learning_rate": 5e-4,
         "device": "cuda" if torch.cuda.is_available() else "cpu",
         "epochs": 10,
         "logIntervals": 20,
-        "checkpointIntervals": 2,
+        "checkpointIntervals": 5,
         "batchSize": 32,
         "frameClips": 15 * 35,
         "train_ratio": 0.8,
@@ -63,6 +65,7 @@ if __name__ == "__main__":
     validation_size = keypointReaderSize - train_size
 
     train_dataset, validation_dataset = random_split(dataset, [train_size, validation_size])
+    
     train_dataloader = DataLoader(train_dataset, batch_size=modelParameters["batchSize"], shuffle=True, collate_fn=tools.collate_fn)
     val_dataloader = DataLoader(validation_dataset, batch_size=modelParameters["batchSize"], shuffle=True, collate_fn=tools.collate_fn)
 
@@ -99,6 +102,3 @@ if __name__ == "__main__":
             modelDir=ModelPath,
             checkpoint_interval=modelParameters["checkpointIntervals"],
         )
-
-    #p.export_chrome_trace("profile_trace.json")
-    #print(p.key_averages().table(sort_by="cuda_time_total", row_limit=10))ª
