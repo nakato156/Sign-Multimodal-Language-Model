@@ -5,11 +5,10 @@ import torch.multiprocessing as mp
 from torch.utils.data import DataLoader, random_split
 
 #Imported Classes
-from Classes.train.SignDataLoader import SignDataLoader
-from Classes.train.Imitator import Imitator
-from Classes.train.KeypointDataset import KeypointDataset
-from Classes.train.Tools import Tools
-
+from Classes.train import Imitator
+from Classes.train.trainer import Trainer
+from Classes.dataloader import KeypointDataset, SignDataLoader, collate_fn
+from Classes.utils.llm_tools import Tools
 #Profilers
 from torch.profiler import profile, ProfilerActivity
 
@@ -23,9 +22,9 @@ def trace_handler(p):
 
 if __name__ == "__main__":
     #mp.set_start_method("spawn", force=True)
-    tools = Tools(LOG)
+    llm_tools = Tools()
 
-    embedding_layer, tokenizer = tools.getLLM()
+    embedding_layer, tokenizer = llm_tools.getLLM()
     vocab_size, d_model = embedding_layer.weight.size()
 
     print(f"Vocab size: {vocab_size}, d_model: {d_model}")
@@ -37,11 +36,10 @@ if __name__ == "__main__":
 
     # Parameters and Saving Parameteres
     modelParameters = {
-        "model": {
-            "version": 11,
-            "checkpoint": 5,
-            "from_checkpoint": False
-        },
+        "checkpoint": 5,
+        "model_dir": ModelPath,
+        "model_version": 20,
+
         "input_size": 543*2,
         "output_size": 3072,
         "learning_rate": 5e-4,
@@ -55,8 +53,6 @@ if __name__ == "__main__":
         "validation_ratio": 0.2
     }
 
-    tools.saveParameters(ModelPath, modelParameters)
-
     keypointReader = KeypointDataset(h5Path=h5File, labelsCSV=csvFile, max_seq_len=modelParameters["frameClips"])
     dataset = SignDataLoader(tokenizer, embedding_layer, keypointReader, modelParameters["device"])
 
@@ -65,13 +61,17 @@ if __name__ == "__main__":
     validation_size = keypointReaderSize - train_size
 
     train_dataset, validation_dataset = random_split(dataset, [train_size, validation_size])
+    print(f"Train size:\t{len(train_dataset)}\nValidation size:\t{len(validation_dataset)}")
     
-    train_dataloader = DataLoader(train_dataset, batch_size=modelParameters["batchSize"], shuffle=True, collate_fn=tools.collate_fn)
-    val_dataloader = DataLoader(validation_dataset, batch_size=modelParameters["batchSize"], shuffle=True, collate_fn=tools.collate_fn)
+    train_dataloader = DataLoader(train_dataset, batch_size=modelParameters["batchSize"], shuffle=True, collate_fn=collate_fn)
+    val_dataloader = DataLoader(validation_dataset, batch_size=modelParameters["batchSize"], shuffle=True, collate_fn=collate_fn)
 
     # model
     model = Imitator(input_size=modelParameters["input_size"], T_size=modelParameters["frameClips"], output_size=modelParameters["output_size"]).to(modelParameters["device"])
-    model_compiled = torch.compile(model, backend="inductor", mode="default")
+    model = torch.compile(model, backend="inductor", mode="default")
+    
+    trainer = Trainer(model, train_dataloader, val_dataloader, **modelParameters)
+    trainer.ckpt_mgr.save_params(modelParameters)
 
     print(model)
     
@@ -79,26 +79,6 @@ if __name__ == "__main__":
  
     if PROFILE:
         with profile(activities=[ProfilerActivity.CPU, ProfilerActivity.CUDA], record_shapes=True, with_stack=True, profile_memory=True) as p:
-            tools.train(
-                model_compiled,
-                train_dataloader,
-                val_dataloader,
-                epochs=modelParameters["epochs"],
-                log_interval=modelParameters["logIntervals"],
-                learning_rate=modelParameters["learning_rate"],
-                modelVersions=modelParameters["model"],
-                modelDir=ModelPath,
-                checkpoint_interval=modelParameters["checkpointIntervals"],
-            )
+            trainer.train()
     else:
-        tools.train(
-            model_compiled,
-            train_dataloader,
-            val_dataloader,
-            epochs=modelParameters["epochs"],
-            log_interval=modelParameters["logIntervals"],
-            learning_rate=modelParameters["learning_rate"],
-            modelVersions=modelParameters["model"],
-            modelDir=ModelPath,
-            checkpoint_interval=modelParameters["checkpointIntervals"],
-        )
+        trainer.train()
