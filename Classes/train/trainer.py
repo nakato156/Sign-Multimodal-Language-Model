@@ -12,7 +12,7 @@ from Classes.checkpoint.manager import CheckpointManager
 import nvtx
 
 class Trainer:
-    def __init__(self, model, train_loader, val_loader, **kwargs):
+    def __init__(self, model, train_loader, val_loader, embedding_layer, **kwargs):
         self.LOG = kwargs.get("log", False)
         
         self.device = kwargs.get("device", "cuda")
@@ -25,16 +25,17 @@ class Trainer:
             kwargs.get("model_version", 1),
             kwargs.get("checkpoint", 0)
         )
+        self.embed_layer = embedding_layer
         self.model = model.to(self.device)
         self.train_loader = train_loader
         self.val_loader = val_loader
         self.writer = SummaryWriter("imitator_report")
-        self.grad_scaler = GradScaler(device=self.device)
+        self.scaler = GradScaler(device=self.device)
         self.criterion = torch.compile(
             ImitatorLoss(alpha=1.0, beta=1.0),
             backend="inductor", mode="default"
         )
-        self.early_stopping = EarlyStopping(self.ckpt_mgr._path())
+        self.early_stopping = EarlyStopping()
 
 
     @torch.compile
@@ -45,7 +46,7 @@ class Trainer:
 
         for epoch in tqdm(range(self.epochs), desc="Entrenando", colour="green"):
             self._train_epoch(epoch, optimizer)
-            self._validate()
+            self._validate(epoch)
             if self.early_stopping.stop:
                 break
 
@@ -53,12 +54,13 @@ class Trainer:
             self.model.train()
             total_loss = 0
 
-            for data, embeddings in self.train_loader:
+            for data, input_ids in self.train_loader:
                 optimizer.zero_grad(set_to_none=True)
 
                 with nvtx.annotate("Data to CUDA", color="yellow"):
                     data = data.to(self.device)
-                    embeddings = embeddings.to(self.device)
+                    input_ids = input_ids.to(self.device)
+                    embeddings = self.embed_layer(input_ids)
 
                 with nvtx.annotate("Training", color="blue"):            
                     #Change to bfloat16 if the GPU used is with Ampere Architecture or Higher
@@ -103,9 +105,10 @@ class Trainer:
                 for data, input_ids in self.val_loader:
                     data = data.to(self.device)
                     input_ids = input_ids.to(self.device)
+                    embeddings = self.embed_layer(input_ids)
 
                     output = self.model(data)
-                    loss = self.criterion(output.to(dtype=torch.bfloat16), input_ids)
+                    loss = self.criterion(output.to(dtype=torch.bfloat16), embeddings)
                     val_loss += loss.detach()
 
                     # del output, data, embeddings, cos_sim
