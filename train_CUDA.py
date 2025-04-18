@@ -36,15 +36,14 @@ if __name__ == "__main__":
 
     # Parameters and Saving Parameteres
     modelParameters = {
-        "checkpoint": 5,
+        "model_version": 31,
+        "checkpoint": 3,
         "model_dir": ModelPath,
-        "model_version": 20,
-
         "input_size": 543*2,
         "output_size": 3072,
         "learning_rate": 5e-4,
         "device": "cuda" if torch.cuda.is_available() else "cpu",
-        "epochs": 10,
+        "epochs": 100,
         "logIntervals": 20,
         "checkpointIntervals": 5,
         "batchSize": 32,
@@ -54,7 +53,7 @@ if __name__ == "__main__":
     }
 
     keypointReader = KeypointDataset(h5Path=h5File, labelsCSV=csvFile, max_seq_len=modelParameters["frameClips"])
-    dataset = SignDataLoader(tokenizer, embedding_layer, keypointReader, modelParameters["device"])
+    dataset = SignDataLoader(tokenizer, keypointReader, modelParameters["device"])
 
     keypointReaderSize = len(keypointReader)
     train_size = int(keypointReaderSize * modelParameters["train_ratio"])
@@ -63,14 +62,30 @@ if __name__ == "__main__":
     train_dataset, validation_dataset = random_split(dataset, [train_size, validation_size])
     print(f"Train size:\t{len(train_dataset)}\nValidation size:\t{len(validation_dataset)}")
     
-    train_dataloader = DataLoader(train_dataset, batch_size=modelParameters["batchSize"], shuffle=True, collate_fn=collate_fn)
-    val_dataloader = DataLoader(validation_dataset, batch_size=modelParameters["batchSize"], shuffle=True, collate_fn=collate_fn)
-
+    train_dataloader = DataLoader(
+        train_dataset,
+        batch_size=modelParameters["batchSize"],
+        shuffle=True,
+        num_workers=4,
+        pin_memory=True,
+        persistent_workers=True,
+        collate_fn=collate_fn
+    )
+    val_dataloader = DataLoader(
+        validation_dataset,
+        batch_size=modelParameters["batchSize"],
+        shuffle=False,
+        num_workers=4,
+        pin_memory=True,
+        persistent_workers=True,
+        collate_fn=collate_fn
+    )
+    
     # model
     model = Imitator(input_size=modelParameters["input_size"], T_size=modelParameters["frameClips"], output_size=modelParameters["output_size"]).to(modelParameters["device"])
     model = torch.compile(model, backend="inductor", mode="default")
     
-    trainer = Trainer(model, train_dataloader, val_dataloader, **modelParameters)
+    trainer = Trainer(model, train_dataloader, val_dataloader, embedding_layer, **modelParameters)
     trainer.ckpt_mgr.save_params(modelParameters)
 
     print(model)

@@ -42,7 +42,7 @@ class Imitator(nn.Module):
         self.pooling = nn.Linear(T_size, pool_dim)
         nn.init.xavier_uniform_(self.pooling.weight)
 
-        self.norm_out = nn.LayerNorm(output_size)
+        # self.norm_out = nn.LayerNorm(output_size)
 
     def forward(self, x):
         # x -> [batch_size, T, input_size]
@@ -60,4 +60,4 @@ class Imitator(nn.Module):
         x = F.relu(self.pooling(x))
         x = x.transpose(1, 2)
 
-        return self.norm_out(x)
+        return x
