@@ -46,6 +46,7 @@ class Trainer:
     @torch.compile
     @nvtx.annotate("Start Training", color="green")
     def train(self):
+<<<<<<< Updated upstream
         """Entrena el modelo Imitator.
         returns:
             train_loss: float, loss de entrenamiento
@@ -63,6 +64,11 @@ class Trainer:
 
         train_loss = 0
         val_loss = 0
+=======
+        
+        optimizer = AdamW(self.model.parameters(), lr=self.learning_rate)
+        scheduler = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(optimizer, 4)
+>>>>>>> Stashed changes
 
         for epoch in tqdm(range(self.epochs), desc="Entrenando", colour="green"):
             train_loss = self._train_epoch(epoch, optimizer, scheduler)

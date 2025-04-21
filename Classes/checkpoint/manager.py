@@ -93,7 +93,7 @@ class CheckpointManager:
 
     def save_model(self, model, epoch):
         path = self._path(str(epoch))
-        torch.save(model.state_dict(), os.path.join(path, "model.pt"))
+        torch.save(model, os.path.join(path, "model.pt"))
 
     def load_model(self, model, path):
         state = torch.load(path)
