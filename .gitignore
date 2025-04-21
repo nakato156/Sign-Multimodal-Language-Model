@@ -20,3 +20,5 @@ profile.sh
 train.sh
 
 nk_*
+*.db
+*.pickle

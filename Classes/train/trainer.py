@@ -26,6 +26,7 @@ class Trainer:
             kwargs.get("model_dir", "model"),
             kwargs.get("model_version", 1),
             kwargs.get("checkpoint", 0),
+            self.model
         )
         self.train_loader = train_loader
         self.val_loader = val_loader
