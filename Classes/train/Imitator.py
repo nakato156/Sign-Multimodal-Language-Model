@@ -6,12 +6,12 @@ class Imitator(nn.Module):
     def __init__(
         self,
         input_size: int = 1086,
-        hidden_size: int = 512,
+        hidden_size: int = 1024,
         T_size: int = 525,
         output_size: int = 3072,
-        nhead: int = 32,
+        nhead: int = 64,
         ff_dim: int = 4096,
-        n_layers: int = 8,
+        n_layers: int = 12,
         pool_dim: int = 128,
     ):
         super().__init__()
@@ -29,20 +29,20 @@ class Imitator(nn.Module):
 
         self.linear = nn.Linear(input_size, hidden_size)
         nn.init.xavier_uniform_(self.linear.weight)
-        
         self.norm1 = nn.LayerNorm(hidden_size)
 
+        self.pe = PositionalEncoding(d_model=hidden_size)
         encoder_layer = nn.TransformerEncoderLayer(d_model=hidden_size, nhead=nhead, dim_feedforward=ff_dim, batch_first=True)
         self.transformer = nn.TransformerEncoder(encoder_layer, num_layers=n_layers)
-        self.pe = PositionalEncoding(d_model=hidden_size)
         
-        self.linear2 = nn.Linear(hidden_size, output_size)
-        nn.init.xavier_uniform_(self.linear2.weight)
-        
-        self.pooling = nn.Linear(T_size, pool_dim)
-        nn.init.xavier_uniform_(self.pooling.weight)
+        self.temporal_adjuster = nn.Sequential(
+            nn.Linear(T_size, pool_dim),
+            nn.ReLU()
+        )
 
-        # self.norm_out = nn.LayerNorm(output_size)
+        self.linear_out = nn.Linear(hidden_size, output_size)
+        nn.init.xavier_uniform_(self.linear_out.weight)
+        
 
     def forward(self, x):
         # x -> [batch_size, T, input_size]
@@ -54,10 +54,16 @@ class Imitator(nn.Module):
         x = self.pe(x)
         x = self.transformer(x)
 
-        x = F.relu(self.linear2(x))
+        x = x.transpose(1, 2)    # [B, hidden, 525]
+        x = self.temporal_adjuster(x)  # [B, hidden, 128]
+        x = x.transpose(1, 2)
+        
+        x = self.linear_out(x)
+        
+        # x = F.relu(self.linear_out(x))
 
-        x = x.transpose(1, 2)
-        x = F.relu(self.pooling(x))
-        x = x.transpose(1, 2)
+        # x = x.transpose(1, 2)
+        # x = F.relu(self.pooling(x))
+        # x = x.transpose(1, 2)
 
         return x

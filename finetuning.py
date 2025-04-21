@@ -2,6 +2,8 @@ import os
 from pathlib import Path
 import gc
 
+from setup_train import *
+
 from unsloth import FastLanguageModel
 
 import torch
@@ -128,44 +130,27 @@ def train(mslm, lm_head, train_dataloader, val_dataloader, llama_embed_layer, de
             print(f"Checkpoint saved at {checkpoint_file}")
 
 def main(modelParameters, mslm, llama_embed_layer, lm_head):
-    DataPath = os.path.join(os.getcwd(), os.pardir, "data", "dataset2")
-    h5File = os.path.join(DataPath, "keypoints.h5")
-    csvFile = os.path.join(DataPath, "meta.csv")
+    # Paths
+    DataPath, ModelPath, h5File, csvFile = setup_paths()
 
-    keypointReader = KeypointDataset(h5Path=h5File, labelsCSV=csvFile, max_seq_len=modelParameters["frameClips"])
-    dataset = SignDataLoader(tokenizer, keypointReader, modelParameters["device"])
-
-    keypointReaderSize = len(keypointReader)
-    train_size = int(keypointReaderSize * modelParameters["train_ratio"])
-    validation_size = keypointReaderSize - train_size
-
-    train_dataset, validation_dataset = random_split(dataset, [train_size, validation_size])
-    train_dataloader = DataLoader(
-        train_dataset,
-        batch_size=modelParameters["batchSize"],
-        shuffle=True,
-        num_workers=4,
-        pin_memory=True,
-        persistent_workers=True,
-        collate_fn=collate_fn
-    )
-    val_dataloader = DataLoader(
-        validation_dataset,
-        batch_size=modelParameters["batchSize"],
-        shuffle=False,
-        num_workers=4,
-        pin_memory=True,
-        persistent_workers=True,
-        collate_fn=collate_fn
+    train_dataset, validation_dataset = prepare_datasets(
+        h5File,
+        csvFile,
+        tokenizer,
+        max_seq_len=modelParameters["frameClips"],
+        train_ratio=modelParameters["train_ratio"],
+        device=modelParameters["device"],
     )
 
-    del keypointReader
-    del dataset
+    # Create DataLoaders
+    train_dataloader, val_dataloader = create_dataloaders(
+        train_dataset, validation_dataset, modelParameters["batchSize"]
+    )
 
     # Early stopping and checkpoint setup
     checkpoint_dir = Path("model/checkpoints") / str(modelParameters["model"]["version"]) / str(modelParameters["model"]["checkpoint"])
     checkpoint_dir.mkdir(parents=True, exist_ok=True)
-    early_stopping = EarlyStopping(path_checkpoints=checkpoint_dir, patience=5, threshold=0.002, verbose=True)
+    early_stopping = EarlyStopping(patience=5, threshold=0.002, verbose=True)
 
     while True:
         torch.cuda.empty_cache()
