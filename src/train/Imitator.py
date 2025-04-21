@@ -6,12 +6,12 @@ class Imitator(nn.Module):
     def __init__(
         self,
         input_size: int = 1086,
-        hidden_size: int = 1024,
+        hidden_size: int = 512,
         T_size: int = 525,
         output_size: int = 3072,
-        nhead: int = 64,
-        ff_dim: int = 4096,
-        n_layers: int = 12,
+        nhead: int = 32,
+        ff_dim: int = 1024,
+        n_layers: int = 8,
         pool_dim: int = 128,
     ):
         super().__init__()
@@ -26,7 +26,7 @@ class Imitator(nn.Module):
             "n_layers": n_layers,
             "pool_dim": pool_dim
         }
-
+        
         self.linear = nn.Linear(input_size, hidden_size)
         nn.init.xavier_uniform_(self.linear.weight)
         self.norm1 = nn.LayerNorm(hidden_size)

@@ -1,6 +1,5 @@
 from src.train.trainer import Trainer
 from src.train import Imitator
-from functools import wraps
 
 def lr_objetive(trial, train_dataloader, val_dataloader, embedding_layer, **params):
     learning_rate = trial.suggest_float("lr", 1e-5, 1e-1, log=True)
@@ -9,7 +8,7 @@ def lr_objetive(trial, train_dataloader, val_dataloader, embedding_layer, **para
 
     model = Imitator(
         input_size=modelParameters["input_size"],
-        T_size=modelParameters["frameClips"],
+        T_size=modelParameters["frame_clips"],
         output_size=modelParameters["output_size"],
         nhead=32,
         ff_dim=4096,
@@ -22,7 +21,8 @@ def lr_objetive(trial, train_dataloader, val_dataloader, embedding_layer, **para
     return val_loss
 
 def complete_objetive(trial, train_dataloader, val_dataloader, embedding_layer, modelParameters):
-    nhead = trial.suggest_categorical("nhead", [32, 64])
+    hidden_size = trial.suggest_categorical("hidden_size", [512, 1024, 2048])
+    nhead = trial.suggest_categorical("nhead", [16, 32, 64])
     ff_dim = trial.suggest_int("ff_dim", 1024, 3072, step=256)
     n_layers = trial.suggest_categorical("n_layers", [6, 8, 10, 12])
     learning_rate = trial.suggest_float("lr", 1e-5, 1e-1, log=True)
@@ -30,8 +30,9 @@ def complete_objetive(trial, train_dataloader, val_dataloader, embedding_layer, 
     
     model = Imitator(
         input_size=modelParameters["input_size"],
-        T_size=modelParameters["frameClips"],
+        T_size=modelParameters["frame_clips"],
         output_size=modelParameters["output_size"],
+        hidden_size=hidden_size,
         nhead=nhead,
         ff_dim=ff_dim,
         n_layers=n_layers,

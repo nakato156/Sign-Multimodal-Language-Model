@@ -1,0 +1,1 @@
+python -m src.scripts.make_study

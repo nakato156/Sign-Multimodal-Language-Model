@@ -14,6 +14,15 @@ if __name__ == "__main__":
     # Carga el study existente
     study = optuna.load_study(study_name=study_name, storage=storage)
 
+    for i, trial in enumerate(study.trials):
+        print(f"Trial {i}:")
+        print(f"  Value: {trial.value}")
+        print(f"  Params: {trial.params}")
+        print(f"  State: {trial.state}")
+        print(f"  User attrs: {trial.user_attrs}")
+        print(f"  System attrs: {trial.system_attrs}")
+        print()
+    
     # Imprime los resultados
     print("Resultados del estudio:")
     print("Best value:", study.best_value)
