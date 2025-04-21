@@ -71,6 +71,9 @@ class Trainer:
                 break
         return train_loss, val_loss
 
+    def distributed_train(self):
+        pass
+
     def _train_epoch(self, epoch, optimizer, scheduler):
         self.model.train()
         total_loss = 0
