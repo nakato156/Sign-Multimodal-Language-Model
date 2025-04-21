@@ -13,10 +13,10 @@ from torch.optim.lr_scheduler import CosineAnnealingLR
 from torch import autocast # , GradScaler
 import torch.nn.functional as F
 
-from Classes.dataloader import KeypointDataset, SignDataLoader, collate_fn
-from Classes.train.Imitator import Imitator
-from Classes.train.PositionalEncoding import PositionalEncoding
-from Classes.utils.early_stopping import EarlyStopping
+from src.dataloader import KeypointDataset, SignDataLoader, collate_fn
+from src.train.Imitator import Imitator
+from src.train.PositionalEncoding import PositionalEncoding
+from src.utils.early_stopping import EarlyStopping
 from tqdm import tqdm
 
 LOG = False

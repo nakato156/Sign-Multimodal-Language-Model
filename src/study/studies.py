@@ -1,5 +1,5 @@
-from Classes.train.trainer import Trainer
-from Classes.train import Imitator
+from src.train.trainer import Trainer
+from src.train import Imitator
 from functools import wraps
 
 def lr_objetive(trial, train_dataloader, val_dataloader, embedding_layer, **params):

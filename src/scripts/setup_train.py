@@ -4,10 +4,10 @@ import torch
 from torch.utils.data import DataLoader, random_split
 
 #Imported Classes
-from Classes.train import Imitator
-from Classes.train.trainer import Trainer
-from Classes.dataloader import KeypointDataset, SignDataLoader, collate_fn
-from Classes.utils.llm_tools import Tools
+from src.train import Imitator
+from src.train.trainer import Trainer
+from src.dataloader import KeypointDataset, SignDataLoader, collate_fn
+from src.utils.llm_tools import Tools
 #Profilers
 from torch.profiler import profile, ProfilerActivity
 

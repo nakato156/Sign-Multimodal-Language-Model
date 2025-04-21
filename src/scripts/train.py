@@ -1,13 +1,19 @@
 import torch
+from .setup_train import *
+from argparse import ArgumentParser
 
-from setup_train import *
+def parse_arg():
+    parser = ArgumentParser(description="Train the model.")
+    parser.add_argument("--epochs", type=int, default=100, help="Number of epochs to train.")
+    parser.add_argument("--checkpoint_interval", type=int, default=5, help="Interval for saving checkpoints.")
+    parser.add_argument("--log_interval", type=int, default=2, help="Interval for logging.")
+    return parser.parse_args()
 
 if __name__ == "__main__":
-    llm_tools = Tools()
+    args = parse_arg()
 
     DataPath, ModelPath, h5File, csvFile = setup_paths()
     embedding_layer, tokenizer, vocab_size, d_model = load_llm_components()
-    print(f"Vocab size: {vocab_size}, d_model: {d_model}")
 
     device = "cuda" if torch.cuda.is_available() else "cpu"
 
@@ -15,8 +21,9 @@ if __name__ == "__main__":
     model_parameters = {
         "input_size": 543*2,
         "output_size": 3072,
-        "ff_dim": 1792,
-        "n_layers": 12,
+        "ff_dim": 1024,
+        "hidden_size": 512,
+        "n_layers": 8,
         "T_size": 15 * 35,
         "device": device,
     }
@@ -26,9 +33,9 @@ if __name__ == "__main__":
         "model_version": 34,
         "checkpoint": 1,
         "model_dir": ModelPath,
-        "epochs": 100,
-        "log_interval": 2,
-        "checkpoint_interval": 5,
+        "epochs": args.epochs,
+        "log_interval": args.log_interval,
+        "checkpoint_interval": args.checkpoint_interval,
         "batch_size": 32,
         "train_ratio": 0.8,
         "validation_ratio": 0.2,

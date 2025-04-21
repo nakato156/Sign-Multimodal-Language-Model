@@ -1,4 +1,4 @@
-from Classes.study.studies import complete_objetive
+from src.study.studies import complete_objetive
 from setup_train import *
 import optuna
 
