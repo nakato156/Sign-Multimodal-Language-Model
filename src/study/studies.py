@@ -21,7 +21,7 @@ def lr_objetive(trial, train_dataloader, val_dataloader, embedding_layer, **para
     return val_loss
 
 def complete_objetive(trial, train_dataloader, val_dataloader, embedding_layer, modelParameters):
-    hidden_size = trial.suggest_categorical("hidden_size", [512, 1024, 2048])
+    hidden_size = trial.suggest_categorical("hidden_size", [512, 1024])
     nhead = trial.suggest_categorical("nhead", [16, 32, 64])
     ff_dim = trial.suggest_int("ff_dim", 1024, 3072, step=256)
     n_layers = trial.suggest_categorical("n_layers", [6, 8, 10, 12])
