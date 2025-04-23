@@ -10,7 +10,7 @@ def run(
     log_interval: int,
     train_ratio: float = 0.8,
 ):
-    _, model_path, h5_file, csv_file = setup_paths()
+    _, _, h5_file, csv_file = setup_paths()
     embedding_layer, tokenizer, _, _ = load_llm_components()
     device = "cuda" if torch.cuda.is_available() else "cpu"
 

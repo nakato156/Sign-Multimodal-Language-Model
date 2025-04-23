@@ -30,7 +30,7 @@ class Trainer:
         )
         self.train_loader = train_loader
         self.val_loader = val_loader
-        self.writer = SummaryWriter("imitator_report")
+        self.writer = SummaryWriter("../outputs/reports/")
         self.scaler = GradScaler(device=self.device)
         self.criterion = torch.compile(
             ImitatorLoss(alpha=1.0, beta=1.0),
