@@ -1,5 +1,5 @@
 import torch.nn as nn
-from .PositionalEncoding import PositionalEncoding
+from .components.positional_encoding import PositionalEncoding
 import torch.nn.functional as F
 
 class Imitator(nn.Module):

@@ -5,9 +5,9 @@ from torch import autocast, GradScaler
 from torch.optim import AdamW
 from torch.utils.tensorboard import SummaryWriter
 
-from src.utils.early_stopping import EarlyStopping
-from src.train.loss import ImitatorLoss
-from src.checkpoint.manager import CheckpointManager
+from mslm.utils.early_stopping import EarlyStopping
+from mslm.training import ImitatorLoss
+from mslm.checkpoint.manager import CheckpointManager
 
 import nvtx
 
@@ -23,7 +23,7 @@ class Trainer:
         self.embed_layer = embedding_layer
         self.model = model.to(self.device)
         self.ckpt_mgr = CheckpointManager(
-            kwargs.get("model_dir", "model"),
+            kwargs.get("model_dir", "../outputs/checkpoints"),
             kwargs.get("model_version", 1),
             kwargs.get("checkpoint", 0),
             self.model

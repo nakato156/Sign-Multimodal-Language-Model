@@ -2,21 +2,18 @@ import os
 from pathlib import Path
 import gc
 
-from setup_train import *
+from mslm.utils.setup_train import *
 
 from unsloth import FastLanguageModel
 
 import torch
 import torch.nn as nn
-from torch.utils.data import DataLoader, random_split
 from torch.optim.lr_scheduler import CosineAnnealingLR
 from torch import autocast # , GradScaler
 import torch.nn.functional as F
 
-from src.dataloader import KeypointDataset, SignDataLoader, collate_fn
-from src.train.Imitator import Imitator
-from src.train.PositionalEncoding import PositionalEncoding
-from src.utils.early_stopping import EarlyStopping
+from mslm.models.components.positional_encoding import PositionalEncoding
+from mslm.utils.early_stopping import EarlyStopping
 from tqdm import tqdm
 
 LOG = False
@@ -40,7 +37,7 @@ def train(mslm, lm_head, train_dataloader, val_dataloader, llama_embed_layer, de
     optimizer = torch.optim.AdamW(mslm.parameters(), lr=learning_rate)
     
     total_steps  = epochs * len(train_dataloader)
-    warmup_steps = int(0.1 * total_steps) 
+    warmup_steps = int(0.1 * total_steps)
     
     scheduler = CosineAnnealingLR(
         optimizer,
@@ -168,7 +165,7 @@ def main(modelParameters, mslm, llama_embed_layer, lm_head):
         early_stopping=early_stopping
     )
 
-if __name__ == '__main__':
+def run():
     torch.backends.cudnn.benchmark = True
 
     ModelPath = Path(os.path.join(os.getcwd(), "model"))

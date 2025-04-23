@@ -9,16 +9,12 @@ unsloth_compiled_cache/
 
 #Dataset and model data
 data/
-model/
-runs/
+outputs/
 
 #Model profiling and debugging
-imitator_report/
 *.qdstrn
 *.nsys-rep
 profile.sh
-train.sh
 
 nk_*
-*.db
 *.pickle

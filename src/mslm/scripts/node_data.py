@@ -13,6 +13,6 @@ from torch.nn.parallel import DistributedDataParallel as DDP
 if __name__ == "__main__":
     rpc.init_rpc(
         name = "data_provider",
-        rank=rank,
+        rank="rank",
         world_size=5
     )

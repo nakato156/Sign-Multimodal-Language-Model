@@ -1,5 +1,5 @@
-from src.train.trainer import Trainer
-from src.train import Imitator
+from ..training import Trainer
+from ..models import Imitator
 
 def lr_objetive(trial, train_dataloader, val_dataloader, embedding_layer, **params):
     learning_rate = trial.suggest_float("lr", 1e-5, 1e-1, log=True)
@@ -20,7 +20,7 @@ def lr_objetive(trial, train_dataloader, val_dataloader, embedding_layer, **para
     _, val_loss = trainer.train()
     return val_loss
 
-def complete_objetive(trial, train_dataloader, val_dataloader, embedding_layer, modelParameters):
+def complete_objective(trial, train_dataloader, val_dataloader, embedding_layer, modelParameters):
     hidden_size = trial.suggest_categorical("hidden_size", [512, 1024])
     nhead = trial.suggest_categorical("nhead", [16, 32, 64])
     ff_dim = trial.suggest_int("ff_dim", 1024, 3072, step=256)

@@ -1,0 +1,17 @@
+[build-system]
+requires = ["setuptools", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "mslm"
+version = "0.1.0-dev"
+description = "Multi-Stage Learning Model for Sign Language"
+authors = [
+    { name = "Christian Velasquez" },
+    { name = "Giorgio Mancusi" },
+]
+dependencies = ["torch", "numpy", "tqdm", "optuna", "pandas", "unsloth", "h5py", "nvtx"]
+requires-python = ">=3.11.11"
+
+[project.scripts]
+mslm = "mslm.cli:main"
