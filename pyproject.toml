@@ -7,11 +7,36 @@ name = "mslm"
 version = "0.1.0-dev"
 description = "Multi-Stage Learning Model for Sign Language"
 authors = [
-    { name = "Christian Velasquez" },
-    { name = "Giorgio Mancusi" },
+  { name = "Christian Velasquez" },
+  { name = "Giorgio Mancusi" },
 ]
-dependencies = ["torch", "numpy", "tqdm", "optuna", "pandas", "unsloth", "h5py", "nvtx"]
 requires-python = ">=3.11.11"
+dependencies = [
+  "torch",
+  "numpy",
+  "tqdm",
+  "optuna",
+  "pandas",
+  "unsloth",
+  "h5py",
+  "nvtx",
+]
 
-[project.scripts]
-mslm = "mslm.cli:main"
+[project.optional-dependencies]
+dev = [
+  "poethepoet>=0.24.1"
+]
+
+[tool.poe.tasks]
+# Definimos cada tarea con su propio bloque para pasar PYTHONPATH
+[tool.poe.tasks.train]
+cmd = "python -m mslm.cli train --epochs 100 --batch_size 32"
+env = { PYTHONPATH = "src" }
+
+[tool.poe.tasks.finetune]
+cmd = "python -m mslm.cli finetune --epochs 10"
+env = { PYTHONPATH = "src" }
+
+[tool.poe.tasks.study]
+cmd = "python -m mslm.cli study --n_trials 30"
+env = { PYTHONPATH = "src" }

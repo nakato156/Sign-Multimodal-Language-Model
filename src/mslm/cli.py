@@ -18,6 +18,7 @@ def main():
     s.add_argument("--batch_size", type=int, default=32)
 
     args = p.parse_args()
+
     if args.cmd == "train":
         train_script.run(
             epochs=args.epochs,

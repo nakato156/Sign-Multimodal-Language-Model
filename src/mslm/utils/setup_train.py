@@ -8,17 +8,17 @@ from mslm.models import Imitator
 from mslm.training import Trainer
 from mslm.dataloader import KeypointDataset, SignDataLoader, collate_fn
 from mslm.utils.llm_tools import Tools
+from mslm.utils.paths import path_vars
 
 #Profilers
 from torch.profiler import profile, ProfilerActivity
 
 def setup_paths():
     """Define y retorna las rutas necesarias para datos y modelos."""
-    cwd = os.getcwd()
-    data_path = os.path.join(cwd, os.pardir, "data", "dataset2")
-    model_path = os.path.join(cwd, "../outputs", "model")
-    h5_file = os.path.join(data_path, "keypoints.h5")
-    csv_file = os.path.join(data_path, "meta.csv")
+    data_path = path_vars.data_path
+    model_path = path_vars.model_path
+    h5_file = path_vars.h5_file
+    csv_file = path_vars.csv_file
     return data_path, model_path, h5_file, csv_file
 
 def load_llm_components():
