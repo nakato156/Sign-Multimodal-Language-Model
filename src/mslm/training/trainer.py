@@ -8,13 +8,14 @@ from torch.utils.tensorboard import SummaryWriter
 from mslm.utils.early_stopping import EarlyStopping
 from mslm.training import ImitatorLoss
 from mslm.checkpoint.manager import CheckpointManager
+from mslm.utils.paths import path_vars
 
 import nvtx
 
 class Trainer:
     def __init__(self, model, train_loader, val_loader, embedding_layer, **kwargs):
         self.LOG = kwargs.get("log", False)
-        
+
         self.device = kwargs.get("device", "cuda")
         self.epochs = kwargs.get("epochs", 100)
         self.learning_rate = kwargs.get("learning_rate", 1e-4)
@@ -23,14 +24,13 @@ class Trainer:
         self.embed_layer = embedding_layer
         self.model = model.to(self.device)
         self.ckpt_mgr = CheckpointManager(
-            kwargs.get("model_dir", "../outputs/checkpoints"),
+            path_vars.model_path,
             kwargs.get("model_version", 1),
             kwargs.get("checkpoint", 0),
-            self.model
         )
         self.train_loader = train_loader
         self.val_loader = val_loader
-        self.writer = SummaryWriter("../outputs/reports/")
+        self.writer = SummaryWriter("outputs/reports/")
         self.scaler = GradScaler(device=self.device)
         self.criterion = torch.compile(
             ImitatorLoss(alpha=1.0, beta=1.0),
@@ -115,12 +115,12 @@ class Trainer:
         if epoch % self.log_interval == 0:
             print("\nEpoch: ", epoch, ".\t Total loss: ", final_loss/len(self.train_loader))
 
-        if epoch == 1:
+        if epoch == 1 or (epoch == self.epochs - 1):
             self.ckpt_mgr.save_model(self.model, 1)
-        elif (epoch % self.checkpoint_interval == 0 and epoch != 0) or (epoch == self.epochs - 1):
-            self.ckpt_mgr.save_model(self.model, epoch)
+        elif (epoch % self.checkpoint_interval == 0 and epoch != 0):
+            self.ckpt_mgr.save_checkpoint(self.model, epoch)
         return final_loss
-    
+     
     def _validate(self, epoch):
         with nvtx.annotate("Prueba de Validacion", color="blue"):
             with torch.no_grad():

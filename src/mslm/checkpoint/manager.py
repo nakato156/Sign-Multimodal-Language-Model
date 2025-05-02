@@ -13,7 +13,7 @@ import torch
 # Epoch
 
 class CheckpointManager:
-    def __init__(self, base_dir, version, checkpoint, model):
+    def __init__(self, base_dir, version, checkpoint):
         self.base = base_dir
         self.v = version
 
@@ -26,13 +26,13 @@ class CheckpointManager:
         #self._check_run_path()
         
     def _path(self, extra=""):
-        p = os.path.join(self.base, "checkpoints", str(self.v), str(self.ckpt), extra)
+        p = os.path.join(self.base, str(self.v), str(self.ckpt), extra)
         os.makedirs(p, exist_ok=True)
         return p
 
     def _run_path(self, extra=""):
         p = os.path.join(
-            self.base, "checkpoints", str(self.v), str(self.ckpt), str(self.run), extra
+            self.base, str(self.v), str(self.ckpt), str(self.run), extra
         )
         os.makedirs(p, exist_ok=True)
         return p
@@ -40,7 +40,7 @@ class CheckpointManager:
     #Checks if there is a run folder
     def _check_run_path(self):
         run = 1
-        p = os.path.join(self.base, "checkpoints", str(self.v), str(self.ckpt), str(self.run))
+        p = os.path.join(self.base, str(self.v), str(self.ckpt), str(self.run))
         while os.path.isdir(p):
             run =+ 1
         os.makedirs(p, exist_ok=True)
@@ -51,7 +51,7 @@ class CheckpointManager:
         #True if there is a similar architure and the checkpoint
         #False if there is not a similar architecure and the last checkpoint
         self._path()
-        p = os.path.join(self.base, "checkpoints", str(self.v))
+        p = os.path.join(self.base, str(self.v))
         #Get checkpoints from the versions
         checkpoints_list = os.listdir(p)
         
@@ -90,28 +90,24 @@ class CheckpointManager:
 
         self.ckpt = int(last_checkpoint) + 1
         return False
+    
+    def load_checkpoint(self, model):
+        state = torch.load(self._run_path())
+        model.load_state_dict(state)
+        return model
 
-    def save_model(self, model, epoch):
-        path = self._path(str(epoch))
-        torch.save(model, os.path.join(path, "model.pt"))
+    def save_checkpoint(self, model, epoch):
+        path = self._run_path(str(epoch))
+        torch.save(model.state_dict(), os.path.join(path, "model.pth.tar"))
 
     def load_model(self, model, path):
         state = torch.load(path)
         model.load_state_dict(state)
         return model
-    
-    def load_model_run(self, model):
-        state = torch.load(self._run_path())
-        model.load_state_dict(state)
-        return model
 
-    def save_model_run(self, model, epoch):
-        path = self._run_path(str(epoch))
-        torch.save(model.state_dict(), os.path.join(path, "model.pth"))
-
-    def save_entire_model(self, model, epoch = 1):
-        path = self._run_path(epoch)
-        torch.save(model.state_dict(), os.path.join(path, "model.pt"))
+    def save_model(self, model, epoch):
+        path = self._path(str(epoch))
+        torch.save(model, os.path.join(path, "model.pt"))
 
     def save_params(self, params):
         p = self._path()
