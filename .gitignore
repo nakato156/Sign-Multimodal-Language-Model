@@ -18,3 +18,4 @@ profile.sh
 
 nk_*
 *.pickle
+*.db
