@@ -1,11 +1,8 @@
-# vs config
-.vscode/
-
 #Python cache
 __pycache__
 
 #Unsloth data
-unsloth_compiled_cache/
+**/unsloth_compiled_cache/
 
 #Dataset and model data
 data/
@@ -18,4 +15,6 @@ profile.sh
 
 nk_*
 *.pickle
-*.db
+
+# macOS system files
+*.DS_Store

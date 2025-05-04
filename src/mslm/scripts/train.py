@@ -27,7 +27,6 @@ def run(
     train_config = ConfigLoader("config/training/train_config.toml").load_config()
     train_ratio = train_config.get("train_ratio", train_ratio)
     train_config.update({
-        "model_version": 35,
         "checkpoint": 1,
         "learning_rate": train_config.get("learning_rate", 0.00238),
         "epochs": epochs if epochs else train_config.get("epochs", 100),
@@ -38,7 +37,7 @@ def run(
         "validation_ratio": round(1 - train_ratio, 2),
         "device": device if model_parameters.get("device") == "auto" else model_parameters.get("device", device),
     })
-
+    print("train_config: ", train_config)
     tr_ds, val_ds = prepare_datasets(h5_file, csv_file, tokenizer,
                                      model_parameters["T_size"],
                                      train_ratio, device)

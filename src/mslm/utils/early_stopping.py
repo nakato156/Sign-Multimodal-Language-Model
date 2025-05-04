@@ -1,5 +1,4 @@
 import numpy as np
-from pathlib import Path
 
 class EarlyStopping:
     def __init__(self, patience:int=10, threshold:float=0.002, verbose:bool=False):
