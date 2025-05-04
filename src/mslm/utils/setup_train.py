@@ -68,7 +68,7 @@ def build_model(input_size, T_size, output_size, device, compile=True, **kwargs)
     """Construye, compila y retorna el modelo Imitator."""
     model = Imitator(input_size=input_size, T_size=T_size, output_size=output_size, **kwargs).to(device)
     if compile:
-        model = torch.compile(model, backend="inductor", mode="default")
+        model = torch.compile(model, backend="inductor", mode="reduce-overhead")
     print(model)
     print(f"{sum(p.numel() for p in model.parameters())/1e6:.2f} M parameters")
     return model

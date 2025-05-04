@@ -20,6 +20,11 @@ def main():
     args = p.parse_args()
 
     if args.cmd == "train":
+        print("Training...")
+        print(f"  epochs: {args.epochs}")
+        print(f"  batch_size: {args.batch_size}")
+        print(f"  checkpoint_interval: {args.checkpoint_interval}")
+        print(f"  log_interval: {args.log_interval}")
         train_script.run(
             epochs=args.epochs,
             batch_size=args.batch_size,

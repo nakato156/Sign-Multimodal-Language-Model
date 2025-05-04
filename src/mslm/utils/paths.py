@@ -47,6 +47,7 @@ class PathVariables:
 
         # Datos
         dp = bp.parent / "data" / "dataset2"
+        dp = bp.parent / "data" / "dataset2"
         self.data_path = dp
         self.h5_file = dp / "keypoints.h5"
         self.csv_file = dp / "meta.csv"
