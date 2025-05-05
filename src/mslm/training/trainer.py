@@ -31,16 +31,8 @@ class Trainer:
         self.val_loader = val_loader
         self.writer = SummaryWriter("../outputs/reports/")
         self.scaler = GradScaler(device=self.device)
-        self.criterion = torch.compile(
-            ImitatorLoss(alpha=1.0, beta=1.0),
-            backend="inductor", mode="default"
-        )
+        self.criterion = ImitatorLoss(alpha=1.0, beta=1.0)
         self.early_stopping = EarlyStopping(patience=5)
-
-        if torch.cuda.get_device_capability()[0] >= 8:
-            torch.set_default_dtype(torch.bfloat16)
-        else:
-            torch.set_default_dtype(torch.float8)
 
     @torch.compile
     @nvtx.annotate("Start Training", color="green")
@@ -81,8 +73,9 @@ class Trainer:
             optimizer.zero_grad(set_to_none=True)
 
             with nvtx.annotate("Data to CUDA", color="yellow"):
-                data = data.to(self.device)
-                input_ids = input_ids.to(self.device)
+                data = data.to(self.device, non_blocking=True)
+                print(data.shape)
+                input_ids = input_ids.to(self.device, non_blocking=True)
                 embeddings = self.embed_layer(input_ids)
 
             with nvtx.annotate("Training", color="blue"):

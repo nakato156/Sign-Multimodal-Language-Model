@@ -13,6 +13,7 @@ class Imitator(nn.Module):
         ff_dim: int = 1024,
         n_layers: int = 8,
         pool_dim: int = 128,
+        use_checkpoints: bool = True
     ):
         super().__init__()
 
@@ -32,7 +33,8 @@ class Imitator(nn.Module):
             out_channels=output_size,
             num_blocks=2,
             kernel_size_spatial=25,
-            kernel_size_temporal=9
+            kernel_size_temporal=9,
+            use_checkpoint=use_checkpoints
         )
         
         self.temporal_adjuster = nn.Sequential(

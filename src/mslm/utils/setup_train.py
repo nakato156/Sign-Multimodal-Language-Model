@@ -51,7 +51,8 @@ def create_dataloaders(train_dataset, validation_dataset, batch_size, num_worker
         num_workers=num_workers,
         pin_memory=True,
         persistent_workers=True,
-        collate_fn=collate_fn
+        collate_fn=collate_fn,
+        
     )
     val_dataloader = DataLoader(
         validation_dataset,
@@ -66,15 +67,22 @@ def create_dataloaders(train_dataset, validation_dataset, batch_size, num_worker
 
 def build_model(input_size, T_size, output_size, device, compile=True, **kwargs):
     """Construye, compila y retorna el modelo Imitator."""
-    model = Imitator(input_size=input_size, T_size=T_size, output_size=output_size, **kwargs).to(device)
+    model = Imitator(input_size=input_size, T_size=T_size, output_size=output_size, use_checkpoints=True, **kwargs).to(device)
+
     if compile:
-        model = torch.compile(model, backend="inductor", mode="reduce-overhead")
+        model = torch.compile(model, backend="cudagraphs", mode="reduce-overhead")
     print(model)
     print(f"{sum(p.numel() for p in model.parameters())/1e6:.2f} M parameters")
     return model
 
+def backend_flags():
+    torch.backends.cudnn.benchmark = True
+    torch.backends.cuda.allow_fp16_bf16_reduction_math_sdp = True
+    torch.backends.cuda.matmul.allow_bf16_reduced_precision_reduction = True
+
 def run_training(params, train_dataloader, val_dataloader, embedding_layer, model, PROFILE=False):
     """Configura y ejecuta el entrenamiento."""
+    backend_flags()
     trainer = Trainer(model, train_dataloader, val_dataloader, embedding_layer, **params)
     trainer.ckpt_mgr.save_params(params)
 

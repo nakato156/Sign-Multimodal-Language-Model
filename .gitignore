@@ -16,5 +16,9 @@ profile.sh
 nk_*
 *.pickle
 
+# pip files
+pip-packages
+
 # macOS system files
 *.DS_Store
+

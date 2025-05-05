@@ -1,4 +1,3 @@
-# antes importabas y parseabas aquí; ahora solo defines lógica en run()
 import torch
 from mslm.utils.setup_train import load_llm_components, setup_paths
 from mslm.utils import create_dataloaders, build_model, run_training, prepare_datasets, ConfigLoader
@@ -37,7 +36,7 @@ def run(
         "validation_ratio": round(1 - train_ratio, 2),
         "device": device if model_parameters.get("device") == "auto" else model_parameters.get("device", device),
     })
-    print("train_config: ", train_config)
+    
     tr_ds, val_ds = prepare_datasets(h5_file, csv_file, tokenizer,
                                      model_parameters["T_size"],
                                      train_ratio, device)
@@ -45,3 +44,15 @@ def run(
 
     model = build_model(**model_parameters)
     run_training(train_config, tr_dl, val_dl, embedding_layer, model)
+
+if __name__ == "__main__":
+    import argparse
+
+    parser = argparse.ArgumentParser(description="Train a model.")
+    parser.add_argument("--epochs", type=int, default=100, help="Number of epochs to train.")
+    parser.add_argument("--batch_size", type=int, default=32, help="Batch size for training.")
+    parser.add_argument("--checkpoint_interval", type=int, default=5, help="Interval for saving checkpoints.")
+    parser.add_argument("--log_interval", type=int, default=2, help="Interval for logging training progress.")
+    args = parser.parse_args()
+
+    run(args.epochs, args.batch_size, args.checkpoint_interval, args.log_interval)

@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+import torch.utils.checkpoint as checkpoint
 
 from .gcn import unit_gcn, unit_tcn, mstcn
 
@@ -56,9 +57,10 @@ class SimpleSTGCNBlock(nn.Module):
         return x
 
 class STGCN(nn.Module):
-    def __init__(self, in_channels, out_channels, num_blocks=2, kernel_size_spatial=25, kernel_size_temporal=9):
+    def __init__(self, in_channels, out_channels, num_blocks=2, kernel_size_spatial=25, kernel_size_temporal=9, use_checkpoint=True):
         super(STGCN, self).__init__()
         self.num_blocks = num_blocks
+        self.use_checkpoint = use_checkpoint
         self.blocks = nn.ModuleList()
         
         for _ in range(num_blocks):
@@ -68,5 +70,8 @@ class STGCN(nn.Module):
         
     def forward(self, x):
         for block in self.blocks:
-            x = block(x)
+            if self.use_checkpoint:
+                x= checkpoint.checkpoint(block, x)
+            else:
+                x = block(x)
         return x

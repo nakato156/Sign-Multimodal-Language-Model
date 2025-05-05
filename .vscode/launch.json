@@ -1,15 +1,16 @@
 {
-    // Use IntelliSense to learn about possible attributes.
-    // Hover to view descriptions of existing attributes.
-    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
-    "version": "0.2.0",
-    "configurations": [
-        {
-            "name": "Debug Training",
-            "type": "debugpy",
-            "request": "launch",
-            "program": "${workspaceFolder}/train_CUDA.py",
-            "console": "integratedTerminal"
-        }
-    ]
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Python Debugger: Run mslm.cli",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "mslm.cli",
+      "console": "integratedTerminal",
+      "args": ["train", "--epochs", "10", "--batch_size", "32"],
+      "env": {
+        "PYTHONPATH": "${workspaceFolder}/src"
+      }
+    }
+  ]
 }
