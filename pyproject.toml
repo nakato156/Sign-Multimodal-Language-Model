@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "mslm"
-version = "0.1.0-dev"
+version = "0.2.0-dev"
 description = "Multi-Stage Learning Model for Sign Language"
 authors = [
   { name = "Christian Velasquez" },
@@ -30,13 +30,13 @@ dev = [
 [tool.poe.tasks]
 # Definimos cada tarea con su propio bloque para pasar PYTHONPATH
 [tool.poe.tasks.train]
-cmd = "python -m mslm.cli train --epochs 100 --batch_size 32"
-env = { PYTHONPATH = "src" }
+cmd = "python scripts/train.py --epochs 100 --batch_size 32"
+env = { PYTHONPATH = "." }
 
 [tool.poe.tasks.finetune]
-cmd = "python -m mslm.cli finetune --epochs 10"
-env = { PYTHONPATH = "src" }
+cmd = "python scripts/finetuning.py --epochs 10"
+env = { PYTHONPATH = "." }
 
 [tool.poe.tasks.study]
-cmd = "python -m mslm.cli study --n_trials 30"
-env = { PYTHONPATH = "src" }
+cmd = "python scripts/make_study.py --n_trials 30"
+env = { PYTHONPATH = "." }

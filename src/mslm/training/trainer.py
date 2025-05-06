@@ -5,9 +5,9 @@ from torch import autocast, GradScaler
 from torch.optim import AdamW
 from torch.utils.tensorboard import SummaryWriter
 
-from mslm.utils.early_stopping import EarlyStopping
-from mslm.training import ImitatorLoss
-from mslm.checkpoint.manager import CheckpointManager
+from src.mslm.utils.early_stopping import EarlyStopping
+from src.mslm.training import ImitatorLoss
+from src.mslm.checkpoint.manager import CheckpointManager
 
 import nvtx
 

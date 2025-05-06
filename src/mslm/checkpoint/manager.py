@@ -58,7 +58,7 @@ class CheckpointManager:
         last_checkpoint = 0
 
         if len(checkpoints_list) == 0:
-            False
+            return False
 
         for checkpoint in checkpoints_list:
             checkpoint_path = os.path.join(p, checkpoint)
@@ -96,7 +96,7 @@ class CheckpointManager:
 
     def save_checkpoint(self, model, epoch):
         path = self._run_path(str(epoch))
-        torch.save(model.state_dict(), os.path.join(path, "checkpointt.pth"))
+        torch.save(model.state_dict(), os.path.join(path, "checkpoint.pth"))
 
     def load_model(self, model, path):
         state = torch.load(path)

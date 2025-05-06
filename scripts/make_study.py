@@ -51,3 +51,14 @@ def run(
         n_trials=n_trials
     )
     print(study.best_trial)
+
+if __name__ == "__main__":
+    import argparse
+
+    parser = argparse.ArgumentParser(description="Train a model.")
+    parser.add_argument("--n_trials", type=int, default=30, help="Number of trials to run.")
+    parser.add_argument("--batch_size", type=int, default=32, help="Batch size for training.")
+    parser.add_argument("--train_ratio", type=float, default=0.8, help="Ratio of training data.")
+    args = parser.parse_args()
+
+    run(args.n_trials, args.batch_size, args.train_ratio)
